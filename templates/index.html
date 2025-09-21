@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Research Mate</title>
+  <link rel="icon" href="../static/images/Research Mate.jpeg">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../static/css/style.css">
+  
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">
+        <img src="../static/images/Research Mate.jpeg" alt="Logo" width="80" height="80" class="rounded-circle">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="workflow">Work Flow</a></li>
+          <li class="nav-item"><a class="nav-link" href="developer">Developer Team</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container overflow-auto">
+    <h2 class="mb-4 text-center">📄 Chat with Research Mate</h2>
+
+    <!-- Scholar Search -->
+    <form id="scholar-search-form" class="mb-4">
+      <div class="input-group">
+        <input type="text" id="scholar-query" class="form-control" placeholder="🔍 Search research paper on Google Scholar" required>
+        <button type="submit" class="btn btn-info">Search</button>
+      </div>
+    </form>
+
+    <!-- Search Results -->
+    <div id="search-results" class="mb-4"></div>
+    <div class="or">OR</div>
+    
+    <!-- Upload Manual PDF -->
+    <form id="upload-form" enctype="multipart/form-data" class="mb-4">
+      <div class="mb-3">
+        <input type="file" name="files[]" multiple class="form-control" accept=".pdf" required>
+      </div>
+      <button class="btn btn-primary w-100" type="submit">Upload & Process PDFs</button>
+    </form>
+
+    <!-- Upload Progress Bar -->
+    <div class="progress mb-4" style="height: 20px; display: none;" id="upload-progress">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+           style="width: 0%" id="progress-bar-text">Uploading...</div>
+    </div>
+
+    <!-- Uploaded PDFs -->
+    <h5 class="mt-4 mb-3">📚 Your Documents:</h5>
+    <div id="pdf-container" class="pdf-list mb-4"></div>
+
+    <!-- Chat Area -->
+    <div id="chat-area" class="mb-4"></div>
+  </div>
+
+  <!-- Fixed Chat Form -->
+  <div class="chat-form-container">
+    <form id="chat-form" class="container">
+      <div class="d-flex gap-3">
+        <input type="text" id="question" class="form-control flex-grow-1" placeholder="💬 Ask your question here" required>
+        <button class="btn btn-success" type="submit">Ask</button>
+        <button class="btn btn-danger" id="clear-chat" type="button">Clear</button>
+      </div>
+    </form>
+  </div>
+  <!-- Add this below the PDF list -->
+  <!-- <div class="text-end mb-3">
+      <button class="btn btn-sm btn-danger" id="delete-all-docs">Delete All Documents</button>
+  </div> -->
+  
+  <footer class="text-center">
+    &copy; 2025 ResearchMate. All rights reserved.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../static/js/index.js"></script>
+</body>
+</html>

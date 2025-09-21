@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Workflow - Research Mate</title>
+  <link rel="icon" href="../static/images/Research Mate.jpeg">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">
+        <img src="../static/images/Research Mate.jpeg" alt="Logo" width="120" height="120" class="rounded-circle">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="workflow">Work Flow</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/developer">Developer Team</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Workflow Section -->
+  <div class="container workflow-section">
+    <h2 class="text-center mb-5">📊 Project Workflow</h2>
+
+    <div class="workflow-step">
+      <h4>Step 1: Upload PDF Documents</h4>
+      <p>Users can upload academic or research-based PDF files. These documents are securely stored and preprocessed for information extraction.</p>
+    </div>
+
+    <div class="workflow-step">
+      <h4>Step 2: Backend Processing</h4>
+      <p>The server parses and indexes the PDFs using NLP techniques and vector embeddings (like FAISS or other models) to prepare for efficient question-answering.</p>
+    </div>
+
+    <div class="workflow-step">
+      <h4>Step 3: Ask Your Question</h4>
+      <p>Users can ask questions in natural language related to the uploaded content. The system intelligently interprets the query and searches relevant content.</p>
+    </div>
+
+    <div class="workflow-step">
+      <h4>Step 4: Get AI-Powered Answers</h4>
+      <p>Using language models, the system returns a contextual answer from the uploaded document. Users get results almost instantly in a chat format.</p>
+    </div>
+
+    <div class="workflow-step">
+      <h4>Step 5: Clear Chat / Manage Files</h4>
+      <p>Users can clear the chat, delete specific PDFs, or continue asking more questions without re-uploading files.</p>
+    </div>
+
+    <p class="text-center mt-4">✨ All powered by advanced AI + NLP + PDF extraction pipelines.</p>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2025 ResearchMate. All rights reserved.
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
