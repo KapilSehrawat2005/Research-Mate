@@ -14,32 +14,56 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Upload form handler
     uploadForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitBtn = uploadForm.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Processing...";
-        
-        document.getElementById("upload-progress").style.display = "block";
-        document.getElementById("progress-bar-text").style.width = "100%";
+    e.preventDefault();
+    const submitBtn = uploadForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Processing...";
 
-        const formData = new FormData(uploadForm);
-        try {
-            const res = await fetch('/upload', { method: 'POST', body: formData });
-            const data = await res.json();
+    document.getElementById("upload-progress").style.display = "block";
+    document.getElementById("progress-bar-text").style.width = "100%";
 
-            if (data.filenames) {
-                await initializeSessionData(); // Refresh the document list
+    const formData = new FormData(uploadForm);
+    try {
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+
+        // Defensive parsing: check Content-Type before calling res.json()
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok) {
+            // Try to read JSON error first, otherwise read text
+            if (contentType.includes('application/json')) {
+                const err = await res.json();
+                throw new Error(err.error || JSON.stringify(err));
+            } else {
+                const text = await res.text();
+                throw new Error(text || `Upload failed with status ${res.status}`);
             }
-        } catch (error) {
-            console.error("Upload error:", error);
-            pdfContainer.innerHTML = `<div class="alert alert-danger">❌ Failed to upload or process PDFs: ${error.message}</div>`;
-        } finally {
-            document.getElementById("upload-progress").style.display = "none";
-            submitBtn.disabled = false;
-            submitBtn.textContent = "Upload & Process PDFs";
         }
-    });
 
+        if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data.filenames) {
+                // Refresh the document list (session_data)
+                await initializeSessionData();
+            } else if (data.error) {
+                throw new Error(data.error);
+            } else {
+                // Unexpected shape
+                throw new Error("Unexpected server response.");
+            }
+        } else {
+            // Not JSON (server returned HTML or something else) — show text
+            const text = await res.text();
+            throw new Error(text || "Unexpected non-JSON response from server.");
+        }
+    } catch (error) {
+        console.error("Upload error:", error);
+        pdfContainer.innerHTML = `<div class="alert alert-danger">❌ Failed to upload or process PDFs: ${error.message}</div>`;
+    } finally {
+        document.getElementById("upload-progress").style.display = "none";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Upload & Process PDFs";
+    }
+});
     // Render PDF list function
     function renderPDFList(files) {
         pdfContainer.innerHTML = '';
