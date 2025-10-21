@@ -4,11 +4,10 @@ import requests
 import traceback
 import uuid
 from flask import Flask, render_template, request, jsonify, session
+from flask_session import Session
 from werkzeug.utils import secure_filename
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-# Removed Google embeddings to avoid quota errors
-# from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
@@ -16,20 +15,28 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from serpapi.google_search import GoogleSearch
 
-# ✅ Load environment variables
 load_dotenv()
 app = Flask(__name__)
 
-# Secret key: use explicit env var if present, otherwise generate a random fallback.
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.getenv("GOOGLE_API_KEY") or os.urandom(24)
 
-# ✅ Configuration
-app.config['UPLOAD_FOLDER'] = 'pdf_uploads'
-VECTOR_BASE_FOLDER = "faiss_indexes"
+app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', '/tmp/pdf_uploads')
+VECTOR_BASE_FOLDER = os.getenv('VECTOR_BASE_FOLDER', '/tmp/faiss_indexes')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(VECTOR_BASE_FOLDER, exist_ok=True)
+app.config['SESSION_TYPE'] = os.getenv('SESSION_TYPE', 'filesystem')
+app.config['SESSION_FILE_DIR'] = os.getenv('SESSION_FILE_DIR', '/tmp/flask_session')
+os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+app.config['SESSION_PERMANENT'] = False
+Session(app)
 
-# ✅ Extract text from PDF
+
+def get_user_id():
+    if 'user_id' not in session:
+        session['user_id'] = uuid.uuid4().hex
+        session['uploaded_files'] = []
+        session.modified = True
+    return session['user_id']
 def extract_text_from_pdf(file_path):
     text = ""
     pdf_reader = PdfReader(file_path)
@@ -39,20 +46,20 @@ def extract_text_from_pdf(file_path):
             text += page_text
     return text
 
-# ✅ Split text into manageable chunks
 def split_text(text):
     splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
     return splitter.split_text(text)
 
-# ✅ Create FAISS vector store with HuggingFace embeddings
-def create_vector_store(chunks, folder_name):
+def create_vector_store(chunks, folder_name, user_id=None):
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectorstore = FAISS.from_texts(chunks, embedding=embeddings)
-    save_path = os.path.join(VECTOR_BASE_FOLDER, folder_name)
+    if user_id:
+        save_path = os.path.join(VECTOR_BASE_FOLDER, user_id, folder_name)
+    else:
+        save_path = os.path.join(VECTOR_BASE_FOLDER, folder_name)
     os.makedirs(save_path, exist_ok=True)
     vectorstore.save_local(save_path)
 
-# ✅ QA chain (Gemini still used for answering, not embeddings)
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 def load_chain():
@@ -90,7 +97,6 @@ def session_data():
     files = session.get("uploaded_files", [])
     return jsonify({"uploaded_files": files})
 
-# ✅ Upload PDFs and create embeddings
 @app.route("/upload", methods=["POST"])
 def upload_files():
     try:
@@ -103,13 +109,17 @@ def upload_files():
 
         uploaded_filenames = []
 
+        user_id = get_user_id()
+        user_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], user_id)
+        os.makedirs(user_upload_dir, exist_ok=True)
+
         for file in files:
             if not file.filename.lower().endswith(".pdf"):
                 continue
 
             original_name = secure_filename(file.filename)
             unique_name = f"{uuid.uuid4().hex[:8]}_{original_name}"
-            save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+            save_path = os.path.join(user_upload_dir, unique_name)
             file.save(save_path)
 
             text = extract_text_from_pdf(save_path)
@@ -117,7 +127,7 @@ def upload_files():
             vector_folder = os.path.splitext(unique_name)[0]
 
             try:
-                create_vector_store(chunks, vector_folder)
+                create_vector_store(chunks, vector_folder, user_id=user_id)
             except Exception as ve:
                 traceback.print_exc()
                 try:
@@ -134,7 +144,8 @@ def upload_files():
             session["uploaded_files"].append({
                 "filename": unique_name,
                 "vector_folder": vector_folder,
-                "source": "upload"
+                "source": "upload",
+                "user_id": user_id
             })
             uploaded_filenames.append(unique_name)
 
@@ -157,10 +168,11 @@ def delete_pdf():
             return jsonify({"success": False, "error": "File not found in session"}), 404
 
         vector_folder = file_info["vector_folder"]
-        folder_path = os.path.join(VECTOR_BASE_FOLDER, vector_folder)
+        user_id = file_info.get("user_id") or session.get('user_id')
+        folder_path = os.path.join(VECTOR_BASE_FOLDER, user_id, vector_folder)
 
         if os.path.exists(folder_path):
-            shutil.rmtree(folder_path)
+            shutil.rmtree(os.path.join(VECTOR_BASE_FOLDER, user_id))
 
         session["uploaded_files"] = [f for f in session["uploaded_files"] if f["filename"] != filename]
         session.modified = True
@@ -170,7 +182,6 @@ def delete_pdf():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-# ✅ Use HuggingFace embeddings here too
 @app.route("/ask", methods=["POST"])
 def ask():
     try:
@@ -185,10 +196,12 @@ def ask():
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         all_docs = []
 
+        user_id = get_user_id()
         for file_info in session["uploaded_files"]:
             try:
+                vector_path = os.path.join(VECTOR_BASE_FOLDER, file_info.get("user_id", user_id), file_info["vector_folder"])
                 vectorstore = FAISS.load_local(
-                    os.path.join(VECTOR_BASE_FOLDER, file_info["vector_folder"]),
+                    vector_path,
                     embeddings,
                     allow_dangerous_deserialization=True
                 )
@@ -203,6 +216,20 @@ def ask():
 
         chain = load_chain()
         answer = chain({"input_documents": all_docs, "question": question}, return_only_outputs=True)
+        try:
+            user_id = session.get('user_id')
+            if user_id:
+                user_folder = os.path.join(VECTOR_BASE_FOLDER, user_id)
+                if os.path.exists(user_folder):
+                    shutil.rmtree(user_folder)
+        except Exception:
+            traceback.print_exc()
+
+        try:
+            session.clear()
+        except Exception:
+            pass
+
         return jsonify({"answer": answer["output_text"]})
     except Exception as e:
         traceback.print_exc()
@@ -259,7 +286,10 @@ def add_scholar_paper():
             return jsonify({"success": False, "error": "The link does not lead to a PDF file."}), 400
 
         filename = f"scholar_{uuid.uuid4().hex[:8]}.pdf"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        user_id = get_user_id()
+        user_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], user_id)
+        os.makedirs(user_upload_dir, exist_ok=True)
+        filepath = os.path.join(user_upload_dir, filename)
 
         with open(filepath, 'wb') as f:
             f.write(response.content)
@@ -268,7 +298,7 @@ def add_scholar_paper():
         chunks = split_text(text)
         vector_folder = os.path.splitext(filename)[0]
 
-        create_vector_store(chunks, vector_folder)
+        create_vector_store(chunks, vector_folder, user_id=user_id)
 
         try:
             os.remove(filepath)
@@ -283,7 +313,8 @@ def add_scholar_paper():
             "vector_folder": vector_folder,
             "source": "scholar",
             "title": title,
-            "link": link
+            "link": link,
+            "user_id": user_id
         })
         session.modified = True
 
